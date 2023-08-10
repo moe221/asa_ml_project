@@ -1,16 +1,32 @@
-from fastapi import FastAPI
-import pandas as pd
-from pydantic import BaseModel
-import numpy as np
-from typing import List, Dict
 import os
+from typing import List
+
+import numpy as np
+import pandas as pd
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+
 from registry import load_model
 
-
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
+# Preload the model to accelerate the predictions
+# Load the model in memory when the Uvicorn server starts
+# and then store the model in an `app.state.model` global variable, accessible across all routes
+app.state.model = load_model()
 
 class PredictionInput(BaseModel):
     cpa_7_days: List[float]
@@ -24,10 +40,15 @@ class PredictionInput(BaseModel):
 
 class PredictionOutput(BaseModel):
     result1: float
-    # Add more fields as needed
 
 @app.post("/predict")
 async def predict(input_data: PredictionInput):
+
+    """
+    Make a single cpi target prediction.
+    Assumes 7 day values provided as a list of floats is provided as a string by the user in "%Y-%m-%d %H:%M:%S" format
+    Assumes `latest_cpt` implicitly refers to the daily average cpt on the day the prediciton is made
+    """
 
     # calculate averages
     avg_cpa_rolling_mean_7d = np.mean(input_data.cpa_7_days)
@@ -51,9 +72,17 @@ async def predict(input_data: PredictionInput):
     'daily_budget':[daily_budget]
     }
 
-    rf_model = load_model()
+    rf_model = app.state.model
+    assert rf_model is not None
 
-    prediction = rf_model.predict(pd.DataFrame(data=data))
-    res = round(prediction[0], 2)
+    y_pred = rf_model.predict(pd.DataFrame(data=data))
+    y_pred = round(y_pred[0], 2)
 
-    return {"prediction":res}
+    return dict(cpi_target=float(y_pred))
+
+
+@app.get("/")
+def root():
+    # $CHA_BEGIN
+    return dict(greeting="Project Ravioli - ASA campaign CPI target predcition API.")
+    # $CHA_END

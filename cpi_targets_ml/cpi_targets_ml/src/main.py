@@ -1,8 +1,16 @@
-from cpi_targets_ml.ml_logic.data import get_data_with_cache, clean_asa_bq_campaign_data, clean_log_data, aggregate_keyword_level_data, join_log_and_campaign_data, add_new_features
+from cpi_targets_ml.ml_logic.data import get_data_with_cache, clean_asa_bq_campaign_data, clean_log_data, aggregate_keyword_level_data, join_log_and_campaign_data, add_new_features, load_data_to_bq
+from cpi_targets_ml.ml_logic.preprocessor import preprocess_features
+from cpi_targets_ml.ml_logic.registry import save_results
+from cpi_targets_ml.ml_logic.model import run_model_benchmarking
+
 from colorama import Fore, Style
 from dateutil.parser import parse
 from pathlib import Path
 from cpi_targets_ml.params import *
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
 
 
 
@@ -75,39 +83,73 @@ def preprocess(min_date:str = '2009-01-01', max_date:str = '2015-01-01') -> None
     data_agg_logs = aggregate_keyword_level_data(data_clean_logs)
 
     # join log + BQ campaign data to get cpi targets
-    df = join_log_and_campaign_data(data_agg_logs, data_clean_campaign)
+    data_clean = join_log_and_campaign_data(data_agg_logs, data_clean_campaign)
 
     # add rolling aggregate features
-    df = add_new_features(df)
+    data_clean = add_new_features(data_clean)
 
 
-    # feature scaling and tranformation
+    data_clean = data_clean.drop(columns=['date_dt',
+                   'app_adam_id',
+                   'campaign_id',
+                   'campaign_name'])
 
-    pass
+    print("✅ Removed campaign, app, and date info from data \n")
 
 
-    # X = data_clean.drop("fare_amount", axis=1)
-    # y = data_clean[["fare_amount"]]
-
-    # X_processed = preprocess_features(X)
-
-    # # Load a DataFrame onto BigQuery containing [pickup_datetime, X_processed, y]
-    # # using data.load_data_to_bq()
-    # data_processed_with_timestamp = pd.DataFrame(np.concatenate((
-    #     data_clean[["pickup_datetime"]],
-    #     X_processed,
-    #     y,
-    # ), axis=1))
+    # Load a DataFrame onto BigQuery containing [pickup_datetime, X_processed, y]
+    # using data.load_data_to_bq()
 
     # load_data_to_bq(
-    #     data_processed_with_timestamp,
+    #     data_clean,
     #     gcp_project=GCP_PROJECT,
     #     bq_dataset=BQ_DATASET,
-    #     table=f'processed_{DATA_SIZE}',
+    #     table='asa_cpi_targets_model_preprocessed_data',
     #     truncate=True
     # )
 
-    # print("✅ preprocess() done \n")
+    print("✅ preprocess() done \n")
+
+
+    # feature scaling and tranformation
+    X = data_clean.drop("target_cpi_mean", axis=1)
+    y = data_clean["target_cpi_mean"]
+
+    X_processed, preprocessor = preprocess_features(X)
+
+    # create benchmarks
+    benchmarking_data = run_model_benchmarking(X, y, preprocessor)
+
+
+    for _, row in tqdm(benchmarking_data.iterrows()):
+    ## test save model to ml flow
+        val_r2 = row["R2_score"]
+        cross_validation_scores = row['cross-validation-scores']
+        mean_cross_validation_scores = row['mean-cross-validation-scores']
+        std_cross_validation_scores = row['std-cross-validation-scores']
+        training_set_size = row["tarining_set_size"]
+        model_name = row["model_name"]
+        cv_folds = row['cross-validation-folds']
+
+
+        params = dict(
+            context="train",
+            training_set_size=training_set_size,
+            model_name = model_name,
+            cv_folds=cv_folds
+
+        )
+
+        # Save results on the hard drive using taxifare.ml_logic.registry
+        save_results(params=params,
+                     metrics=dict(r2=val_r2,
+                                  mean_cross_validation_score=mean_cross_validation_scores,
+                                  std_cross_validation_score=std_cross_validation_scores),
+                     model=model_name)
+
+    print("✅ Model benchmarking done - Results saved in MLflow\n")
+
+
 
 # clean data
 

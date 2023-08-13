@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/moe/code/mabuhalala/AI/asa_ml_project/cpi_targets_ml/cpi_targets_ml/src/mlruns/0/27857f7359384d9b95251a84e7b5ffad/artifacts
+end_time: 1691767817828
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 27857f7359384d9b95251a84e7b5ffad
+run_name: intelligent-moose-60
+run_uuid: 27857f7359384d9b95251a84e7b5ffad
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1691767817698
+status: 3
+tags: []
+user_id: moe

@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/moe/code/mabuhalala/AI/asa_ml_project/cpi_targets_ml/cpi_targets_ml/src/mlruns/0/9b1c992f7f4545a49420b72a52985a51/artifacts
+end_time: 1691767529571
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 9b1c992f7f4545a49420b72a52985a51
+run_name: calm-dog-843
+run_uuid: 9b1c992f7f4545a49420b72a52985a51
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1691767529561
+status: 3
+tags: []
+user_id: moe

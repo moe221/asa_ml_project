@@ -108,7 +108,6 @@ def clean_asa_bq_campaign_data(df: pd.DataFrame) -> pd.DataFrame:
             'app_adam_id',
             'campaign_id',
             'campaign_name',
-            'currency',
             'country_code',
             'daily_budget',
             'avg_cpa',
@@ -185,6 +184,7 @@ def join_log_and_campaign_data(
 
     print("✅ Data merging done \n")
 
+
     return df
 
 
@@ -192,12 +192,12 @@ def add_new_features(df: pd.DataFrame) -> pd.DataFrame:
 
     print(Fore.BLUE + "\nFeature engineering..." + Style.RESET_ALL)
 
-    # add overspend flag
+    # Add overspend flag
     df["spend_vs_budget"] = df["daily_budget"] - df["local_spend"]
     df["is_overspend"] = df.apply(lambda x: False if (x["local_spend"]/x["daily_budget"]) < 0.9 else True, axis=1)
 
     # rolling aggregates
-    # List of key metrics for which we will create rolling aggregate features
+    # list of key metrics for which we will create rolling aggregate features
 
     rolling_metrics_sum = ['installs_redownloads',
                     'installs',
@@ -250,11 +250,6 @@ def add_new_features(df: pd.DataFrame) -> pd.DataFrame:
     print("✅ Adding new features done \n")
 
     return X_fe
-
-
-
-
-
 
 
 def load_data_to_bq(

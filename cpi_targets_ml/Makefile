@@ -41,60 +41,23 @@ count_lines:
         '{printf "%4s %s\n", $$1, $$2}{s+=$$0}END{print s}'
 	@echo ''
 
-# ----------------------------------
-#      UPLOAD PACKAGE TO PYPI
-# ----------------------------------
-PYPI_USERNAME=<AUTHOR>
+
+#DOCKER
+
+DOCKER_IMAGE_NAME=cpi_targets_ml
+GCR_MULTI_REGION=eu.gcr.io
+GCP_PROJECT_ID=ecstatic-router-267814
+GCR_REGION=europe-west3
+VERSION=latest
+
 build:
-	@python setup.py sdist bdist_wheel
+	docker build --platform linux/amd64 -t ${GCR_MULTI_REGION}/${GCP_PROJECT_ID}/${DOCKER_IMAGE_NAME} .
 
-pypi_test:
-	@twine upload -r testpypi dist/* -u $(PYPI_USERNAME)
+run:
+	docker run -e PORT=8000 -p 8080:8000 -it ${GCR_MULTI_REGION}/${GCP_PROJECT_ID}/${DOCKER_IMAGE_NAME}
 
-pypi:
-	@twine upload dist/* -u $(PYPI_USERNAME)
+push:
+	docker push  ${GCR_MULTI_REGION}/${GCP_PROJECT_ID}/${DOCKER_IMAGE_NAME}:${VERSION}
 
-# ----------------------------------
-#      Create A Bucket in GCP
-# ----------------------------------
-
-# project id - replace with your GCP project id
-PROJECT_ID=ecstatic-router-267814
-
-# bucket name - replace with your GCP bucket name
-BUCKET_NAME=phiture-asa-ml
-
-# choose your region from https://cloud.google.com/storage/docs/locations#available_locations
-REGION=europe-west3
-
-set_project:
-	@gcloud config set project ${PROJECT_ID}
-
-create_bucket:
-	@gsutil mb -l ${REGION} -p ${PROJECT_ID} gs://${BUCKET_NAME}
-
-
-# ----------------------------------
-#      Upload trainig data to GCP
-# ----------------------------------
-
-# path to the file to upload to GCP (the path to the file should be absolute or should match the directory where the make command is ran)
-# replace with your local path to the `train_1k.csv` and make sure to put the path between quotes
-LOCAL_PATH="./raw_data/cleaned_data"
-
-# bucket directory in which to store the uploaded file (`data` is an arbitrary name that we choose to use)
-BUCKET_FOLDER=data/training_data
-
-upload_data:
-    # @gsutil cp train_1k.csv gs://wagon-ml-my-bucket-name/data/train_1k.csv
-	@gsutil -m cp -R ${LOCAL_PATH} gs://${BUCKET_NAME}/${BUCKET_FOLDER}
-
-
-##### Package params  - - - - - - - - - - - - - - - - - - -
-
-PACKAGE_NAME=cpi_targets_ml
-FILENAME=trainer
-
-
-run_locally:
-	@python -m ${PACKAGE_NAME}.${FILENAME}
+deploy:
+	gcloud run deploy --image ${GCR_MULTI_REGION}/${GCP_PROJECT_ID}/${DOCKER_IMAGE_NAME} --region ${GCR_REGION}

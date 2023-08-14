@@ -1,4 +1,3 @@
-import os
 from typing import List
 
 import numpy as np
@@ -7,9 +6,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import os
+
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 
 from registry import load_model
 
@@ -46,7 +46,7 @@ async def predict(input_data: PredictionInput):
 
     """
     Make a single cpi target prediction.
-    Assumes 7 day values provided as a list of floats is provided as a string by the user in "%Y-%m-%d %H:%M:%S" format
+    Assumes 7 day values provided as a list of floats is provided by the user
     Assumes `latest_cpt` implicitly refers to the daily average cpt on the day the prediciton is made
     """
 
@@ -84,5 +84,5 @@ async def predict(input_data: PredictionInput):
 @app.get("/")
 def root():
     # $CHA_BEGIN
-    return dict(greeting="Project Ravioli - ASA campaign CPI target predcition API.")
+    return dict(greeting="Project Ravioli - ASA campaign CPI target prediction API.")
     # $CHA_END

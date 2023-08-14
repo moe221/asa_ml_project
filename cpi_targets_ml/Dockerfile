@@ -1,7 +1,7 @@
 FROM python:3.10.12-bookworm
 
-COPY api /api
-COPY requirements.txt /requirements.txt
+COPY cpi_targets_ml/api /api
+COPY requirements_api.txt /requirements.txt
 COPY certs /certs
 
 RUN pip install --upgrade pip

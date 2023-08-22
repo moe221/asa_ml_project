@@ -1,6 +1,7 @@
 from adgroup import AdGroup
+from advertisers import Advertiser
 
-class Client:
+class Client(Advertiser):
 
     def __init__(self, name, budget, cpa_goal, max_cpt_bid, avg_cpa, avg_ttr, avg_cvr, ad_group):
         """
@@ -24,6 +25,11 @@ class Client:
         self.avg_ttr = avg_ttr
         self.avg_cvr = avg_cvr
         self.ad_group = ad_group
+        self.bids_entered = 0
+        self.impressions = 0
+        self.taps=0
+        self.installations=0
+        self.spend=0
 
     def set_cpa_goal(self, new_cpa_goal):
         """
@@ -60,6 +66,14 @@ class Client:
         - new_ad_group: AdGroup object, the new ad group to associate with the client
         """
         self.ad_group = new_ad_group
+
+
+    def reset_client(self):
+        self.impressions=0
+        self.bids_entered=0
+        self.taps=0
+        self.installations=0
+        self.spend=0
 
     def __str__(self):
         return f"Client {self.name} with CPA Goal {self.cpa_goal}, Daily Budget {self.budget}, and Max CPT Bid {self.max_cpt_bid}"

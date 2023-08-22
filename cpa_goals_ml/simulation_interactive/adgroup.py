@@ -20,6 +20,7 @@ class AdGroup:
         # Check the type of keyword_bids and set the bids accordingly
         if isinstance(keyword_bids, (int, float)):
             self.keyword_bids = {keyword: keyword_bids for keyword in self.keywords}
+
         elif isinstance(keyword_bids, list) and len(keyword_bids) == self.num_keywords:
             self.keyword_bids = dict(zip(self.keywords, keyword_bids))
         else:

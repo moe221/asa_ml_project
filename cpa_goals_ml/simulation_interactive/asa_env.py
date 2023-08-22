@@ -7,6 +7,8 @@ from advertisers import Advertiser
 import uuid
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from probability_distributions import ProbabilityDistributions
+
 
 
 class ASAEnv(gym.Env):
@@ -23,7 +25,7 @@ class ASAEnv(gym.Env):
         self.auction_competitiveness_level = auction_competitiveness_level
         self.keyword_relevancy_level = 2
 
-        self.window_size = 4
+        self.window_size = 7
 
         self.action_space = spaces.Discrete(9)
         self.observation_space = spaces.Box(low=0, high=np.inf, shape=(4 + self.window_size*3,))
@@ -40,58 +42,11 @@ class ASAEnv(gym.Env):
             "taps": [],
             "installs": [],
             "spend": [],
-            "cpa_goal": [],
+            "ttr_hist": [],
             "budget_remaining": [],
             "reward": [],}
 
         return pd.DataFrame(client_dict)
-
-    def update_kpi(self):
-        # update historical KPIs
-
-        if self.current_step > 3:
-            try:
-                # caluclate x-days average based on simulation results
-                avg_ttr = sum(list(self.hist["taps"])[-self.window_size::]) / sum(list(self.hist["impressions"])[-self.window_size::])
-                # decay factor
-                alpha = 0.9
-                # base CVR without any installs
-                base_ttr = random.choice(np.arange(0.08, 0.6, 0.05))
-                # add some random noise to the CVR
-                noise = random.gauss(0, 0.01)
-                # calculate the new CVR
-                new_ttr = alpha * avg_ttr + (1 - alpha) * base_ttr + noise
-                # make sure the new CVR stays within reasonable limits
-                new_ttr = max(0, min(1, new_ttr))
-                self.client.avg_ttr = new_ttr
-
-            except ZeroDivisionError:
-                pass
-
-            try:
-                avg_cvr= sum(list(self.hist["installs"])[-self.window_size::]) / sum(list(self.hist["taps"])[-self.window_size::])
-
-                # decay factor
-                alpha = 0.8
-                # base CVR without any installs
-                base_cvr =random.choice(np.arange(0.2, 0.8, 0.2))
-                # add some random noise to the CVR
-                noise = random.gauss(0, 0.09)
-                # calculate the new CVR
-                new_cvr = alpha * avg_cvr + (1 - alpha) * base_cvr + noise
-                # make sure the new CVR stays within reasonable limits
-                new_cvr = max(0, min(1, new_cvr))
-
-                self.client.avg_cvr = new_cvr
-
-            except ZeroDivisionError:
-                pass
-
-            try:
-                avg_cpa = sum(list(self.hist["spend"])[-self.window_size::]) / sum(list(self.hist["installs"])[-self.window_size::])
-                self.client.avg_cpa = avg_cpa
-            except ZeroDivisionError:
-                pass
 
 
     def set_number_of_keywords(self, num_keywords):
@@ -144,6 +99,17 @@ class ASAEnv(gym.Env):
 
         # Apply action
         self.client.cpa_goal = action
+        # reset client info
+        self.client.reset_client_kpis()
+        # reset sample cvr, ttr and budget fro historical data
+        ttr_level, cvr_level, budget_level = random.sample(range(0, 3), 3)
+        self.client.sample_historical_data(ttr_level=0, cvr_level=0, budget_level=0)
+
+        # avg_cpa
+        if sum(self.hist["spend"][-self.window_size:]) == 0:
+            self.client.avg_cpa = 0
+        else:
+            self.client.avg_cpa = sum(self.hist["installs"][-self.window_size:])/ sum(self.hist["spend"][-self.window_size:])
 
         iterations = random.randint(300, 700)
         #print(f"Simulating {iterations} Keyword auctions\n")
@@ -163,14 +129,6 @@ class ASAEnv(gym.Env):
 
         # update hist
         self.update_client_hist(iterations=iterations)
-
-        # reset client info
-        self.client.reset_client_kpis()
-        #reset client budget
-        self.client.budget = random.choice(list(self.probabilities.budget_distributions[3]))
-
-        # update kpis
-        self.update_kpi()
 
         # Increase step
         self.current_step += 1
@@ -201,6 +159,10 @@ class ASAEnv(gym.Env):
         # reward for gradual increase in impressions
         # No reward for 0 impressions
         # No reward for 0 cpa
+        # USE ROI!! If ROI of the past 3 days is positive, then --> reward else no reward
+
+        # Reward = Conversions * ConversionWeight - Costs * CostWeight
+
 
         reward = (
             + impressions_weight * impressions_moving_avg
@@ -318,7 +280,8 @@ class ASAEnv(gym.Env):
         # Weight the factors and calculate quality score
         relevance_weight = 0.8
         cvr_weight = 0.3
-        quality_score = (advertiser.keyword_relevance * relevance_weight) + (advertiser.avg_cvr * cvr_weight)
+        bid_weight = 0.9
+        quality_score = (advertiser.keyword_relevance * relevance_weight) + (advertiser.avg_cvr * cvr_weight) + (advertiser.max_cpt_bid * bid_weight)
         return quality_score
 
     def calculate_combination(self, advertiser):
@@ -342,14 +305,14 @@ class ASAEnv(gym.Env):
 
         bid_to_beat = self.get_highest_bid()
         #print("bid to beat", bid_to_beat)
-        if self.client.max_cpt_bid > bid_to_beat:
+        if self.client.max_cpt_bid < bid_to_beat:
             return True
 
     def enter_low_acution(self):
 
         bid_to_beat = self.get_highest_bid()
         #print("bid to beat", bid_to_beat)
-        if self.client.max_cpt_bid < bid_to_beat:
+        if self.client.max_cpt_bid > bid_to_beat:
             return True
 
         return False
@@ -366,22 +329,22 @@ class ASAEnv(gym.Env):
         #threshold = np.random.uniform(low=0.95, high=1.3)  # Random threshold between 80% and 120%
 
         # Compute comfort zone limits
-        lower_limit = self.client.avg_cpa * 0.8
+        lower_limit = self.client.avg_cpa * 0.7
         upper_limit = self.client.avg_cpa * 1.5
 
-        if self.client.cpa_goal == 0:
+        if self.client.cpa_cap == 0:
             enter_auction = True
 
-        elif lower_limit <= self.client.cpa_goal <= upper_limit:
-            #print("client meets cpa criteria")
+        elif lower_limit <= self.client.cpa_cap <= upper_limit:
+            # print("client meets cpa criteria")
             # perfrom auction selection
             enter_auction = self.enter_acution()
 
-        elif self.client.cpa_goal > upper_limit:
+        elif self.client.cpa_cap > upper_limit:
             # enter advertiser in auctions that are too high
             enter_auction = self.enter_high_acution()
 
-        elif self.client.cpa_goal < upper_limit:
+        elif self.client.cpa_cap < upper_limit:
             # enter advertiser in auctions that are too low
             enter_auction = self.enter_low_acution()
 
@@ -453,6 +416,7 @@ class ASAEnv(gym.Env):
                    "nr_bids_entered": self.client.bids_entered,
                    "nr_searches": iterations,
                    "spend": self.client.spend,
+                   "ttr_hist": self.client.avg_ttr,
                    "budget_remaining": self.client.budget
                    }
 
@@ -465,6 +429,7 @@ class ASAEnv(gym.Env):
         self.hist["avg_ttr"] = self.hist["taps"] / self.hist["impressions"]
         self.hist["avg_cvr"] = self.hist["installs"] / self.hist["taps"]
         self.hist['rolling_avg_cpa'] = self.hist['avg_cpa'].rolling(window=self.window_size).mean()
+        self.hist['rolling_avg_cvr'] = self.hist['avg_cpa'].rolling(window=self.window_size).mean()
 
 
 

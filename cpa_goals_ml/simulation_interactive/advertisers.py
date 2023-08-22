@@ -1,6 +1,7 @@
 import random
 import numpy as np
 
+
 class Advertiser:
     def __init__(self,
                  name,
@@ -38,6 +39,16 @@ class Advertiser:
         return True
 
     def gets_tap(self):
+
+        # If a suitable CPA goal is selected, chances of a tap are increased
+        if self.satisfies_cpa_goal:
+            random_bonus = random.choice(np.arange(0.1, 0.2, 0.05))
+            random_event = random.random() < min(self.avg_ttr + random_bonus, 0.8)
+
+            if random_event :
+                # get install
+                self.taps += 1
+                return True
 
         # Random event that generate a direct tap
         random_event = random.random() < 0.1  # 10% chance of a random event
@@ -107,7 +118,11 @@ class Advertiser:
 
 
     def satisfies_cpa_goal(self):
-        return self.avg_cpa <= self.cpa_goal
+        cap = self.cpa_goal * self.avg_cvr
+        lower_limit = self.avg_cpa * 0.7
+        upper_limit = self.avg_cpa * 1.5
+
+        return lower_limit <= cap <= upper_limit
 
     def update_budget(self, price):
         self.budget -= price

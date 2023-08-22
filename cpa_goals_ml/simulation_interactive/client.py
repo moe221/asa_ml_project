@@ -1,9 +1,12 @@
 from adgroup import AdGroup
 from advertisers import Advertiser
+from probability_distributions import ProbabilityDistributions
+import random
+
 
 class Client(Advertiser):
 
-    def __init__(self, name, budget, cpa_goal, avg_cpa, avg_ttr, avg_cvr, ad_group):
+    def __init__(self, name, budget, cpa_goal, ad_group):
         """
         Initialize a Client object with the specified parameters.
 
@@ -20,16 +23,22 @@ class Client(Advertiser):
         self.name = name
         self.budget = budget
         self.cpa_goal = cpa_goal
-        self.avg_cpa = avg_cpa
-        self.avg_ttr = avg_ttr
-        self.avg_cvr = avg_cvr
         self.ad_group = ad_group
         self.bids_entered = 0
         self.impressions = 0
         self.taps=0
         self.installations=0
         self.spend=0
+        self.avg_ttr = 0
+        self.avg_cvr = 0
         self.cpa_cap = self.set_cpa_cap()
+        self.probabilities = ProbabilityDistributions()
+
+
+    def sample_historical_data(self, ttr_level, cvr_level, budget_level):
+        self.avg_ttr = random.choice(list(self.probabilities.ttr_distributions[ttr_level]))
+        self.avg_cvr = random.choice(list(self.probabilities.cvr_distributions[cvr_level]))
+        self.budget = random.choice(list(self.probabilities.budget_distributions[budget_level]))
 
 
     def set_cpa_cap(self):

@@ -1,11 +1,11 @@
+import random
+
 from adgroup import AdGroup
 from advertisers import Advertiser
 from probability_distributions import ProbabilityDistributions
-import random
 
 
 class Client(Advertiser):
-
     def __init__(self, name, budget, cpa_goal, ad_group):
         """
         Initialize a Client object with the specified parameters.
@@ -26,20 +26,32 @@ class Client(Advertiser):
         self.ad_group = ad_group
         self.bids_entered = 0
         self.impressions = 0
-        self.taps=0
-        self.installations=0
-        self.spend=0
+        self.taps = 0
+        self.installations = 0
+        self.spend = 0
         self.avg_ttr = 0
         self.avg_cvr = 0
         self.cpa_cap = self.set_cpa_cap()
         self.probabilities = ProbabilityDistributions()
 
+    def sample_historical_data(self, ttr_level, cvr_level, keyword, ttr_hist, cvr_hist):
+        # self.avg_ttr = random.choice(
+        #     list(self.probabilities.ttr_distributions[ttr_level])
+        # )
+        # self.avg_cvr = random.choice(
+        #     list(self.probabilities.cvr_distributions[cvr_level])
+        # )
+        # self.budget = random.choice(
+        #     list(self.probabilities.budget_distributions[budget_level])
+        # )
 
-    def sample_historical_data(self, ttr_level, cvr_level, budget_level):
-        self.avg_ttr = random.choice(list(self.probabilities.ttr_distributions[ttr_level]))
-        self.avg_cvr = random.choice(list(self.probabilities.cvr_distributions[cvr_level]))
-        self.budget = random.choice(list(self.probabilities.budget_distributions[budget_level]))
+        self.avg_ttr = min((random.choice(
+            list(self.ad_group.keyword_ttr_dict[keyword][ttr_level])
+        )), 1)
 
+        self.avg_cvr = min((random.choice(
+            list(self.ad_group.keyword_ttr_dict[keyword][cvr_level])
+        )), 1)
 
     def set_cpa_cap(self):
         cpa_cap = self.cpa_goal * self.avg_cvr
@@ -73,8 +85,9 @@ class Client(Advertiser):
         if self.cpa_goal == 0:
             self.max_cpt_bid = self.ad_group.keyword_bids[keyword_name]
         else:
-            self.max_cpt_bid = min(self.ad_group.keyword_bids[keyword_name], self.cpa_cap)
-
+            self.max_cpt_bid = min(
+                self.ad_group.keyword_bids[keyword_name], self.cpa_cap
+            )
 
     def set_ad_group(self, new_ad_group):
         """
@@ -85,13 +98,12 @@ class Client(Advertiser):
         """
         self.ad_group = new_ad_group
 
-
     def reset_client_kpis(self):
-        self.impressions=0
-        self.bids_entered=0
-        self.taps=0
-        self.installations=0
-        self.spend=0
+        self.impressions = 0
+        self.bids_entered = 0
+        self.taps = 0
+        self.installations = 0
+        self.spend = 0
 
     def __str__(self):
         return f"Client {self.name} with CPA Goal {self.cpa_goal}, Daily Budget {self.budget}, and Max CPT Bid {self.max_cpt_bid}"
@@ -100,7 +112,16 @@ class Client(Advertiser):
 if __name__ == "__main__":
     # Example of creating a Client object
     ad_group = AdGroup(5, 10.5, 1)
-    client = Client(name="Client_1", budget=1000, cpa_goal=20, max_cpt_bid=2, avg_cpa=25, avg_ttr=0.1, avg_cvr=0.05, ad_group=ad_group)
+    client = Client(
+        name="Client_1",
+        budget=1000,
+        cpa_goal=20,
+        max_cpt_bid=2,
+        avg_cpa=25,
+        avg_ttr=0.1,
+        avg_cvr=0.05,
+        ad_group=ad_group,
+    )
     print(client)
 
     # Example of updating the CPA goal, daily budget, max CPT bid, and ad group

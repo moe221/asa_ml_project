@@ -6,14 +6,13 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
-from pathlib import Path
 from colorama import Fore, Style
 from google.cloud import bigquery
 
 from sklearn.impute import SimpleImputer
 
 from cpi_targets_ml.utils import fill_new_bid_amount
-from cpi_targets_ml.params import GCP_PROJECT, LOCAL_DATA_PATH, CHUNK_SIZE
+from cpi_targets_ml.params import GCP_PROJECT, LOCAL_DATA_PATH
 
 
 def get_data_with_cache(
@@ -102,24 +101,26 @@ def clean_asa_bq_campaign_data(df: pd.DataFrame) -> pd.DataFrame:
     df["date_dt"] = pd.to_datetime(df["date"])
     df["country_code"] = df["country_or_region"].map(str.strip)
 
+    # group by campaign
+
+    df = df.groupby(['date_dt',
+                     'date',
+                     'app_adam_id',
+                     'campaign_id',
+                     'campaign_name']).sum().reset_index()
+
     # keep only relevant columns
     df = df[
         ['date_dt',
             'app_adam_id',
             'campaign_id',
             'campaign_name',
-            'country_code',
             'daily_budget',
-            'avg_cpa',
-            'avg_cpt',
-            'conversion_rate',
             'installs',
-            'installs_new_downloads',
-            'installs_redownloads',
             'impressions',
             'local_spend',
             'taps',
-            'ttr']
+            ]
         ]
 
     print("✅ ASA campaign data cleaned")
@@ -133,7 +134,6 @@ def aggregate_keyword_level_data(df: pd.DataFrame) -> pd.DataFrame:
 
     group_columns = [
                     "app_name",
-                    "country_code",
                     "campaign_id",
                     "campaign_name",
                     "date_dt"
@@ -153,7 +153,7 @@ def aggregate_keyword_level_data(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [col.rstrip("_") for col in list(map('_'.join, df.columns.values))]
 
     # keep only relevant columns
-    df = df[["country_code",
+    df = df[[
      "app_name",
      "campaign_id",
      "campaign_name",
@@ -177,7 +177,6 @@ def join_log_and_campaign_data(
         df_targets,
         on=["date_dt",
              "campaign_id",
-             "country_code",
              "campaign_name"],
         how='inner'
         )
@@ -199,24 +198,18 @@ def add_new_features(df: pd.DataFrame) -> pd.DataFrame:
     # rolling aggregates
     # list of key metrics for which we will create rolling aggregate features
 
-    rolling_metrics_sum = ['installs_redownloads',
+    rolling_metrics_sum = [
                     'installs',
                     'taps',
-                    'installs_new_downloads',
                     'impressions',
                     'local_spend',
                     'is_overspend',
                     'spend_vs_budget']
 
-    rolling_metrics_mean = ['installs_redownloads',
+    rolling_metrics_mean = [
                     'installs',
                     'taps',
-                    'installs_new_downloads',
                     'impressions',
-                    'avg_cpa',
-                    'avg_cpt',
-                    'conversion_rate',
-                    'ttr',
                     'local_spend',
                     'spend_vs_budget']
 
@@ -242,6 +235,15 @@ def add_new_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # re merge all datasets
     X_fe = pd.concat(df_list, axis=0)
+
+    # add avg_cpa, avg_cpt, conversion_rate, ttr
+    X_fe["avg_cpa_rolling_mean_7d"] = X_fe["local_spend_rolling_sum_7d"]/X_fe["installs_rolling_sum_7d"]
+    X_fe["avg_cpt_rolling_mean_7d"] = X_fe["local_spend_rolling_sum_7d"]/X_fe["taps_rolling_sum_7d"]
+    X_fe["conversion_rate_rolling_mean_7d"] = X_fe["installs_rolling_sum_7d"]/X_fe["taps_rolling_sum_7d"]
+    X_fe["ttr_rolling_mean_7d"] = X_fe["taps_rolling_sum_7d"]/X_fe["impressions_rolling_sum_7d"]
+    X_fe["ttr"] = X_fe["taps"]/X_fe["impressions"]
+    X_fe["avg_cpa"] = X_fe["local_spend"]/X_fe["installs"]
+    X_fe["avg_cpt"] = X_fe["local_spend"]/X_fe["taps"]
 
     # drop all missing rows
     X_fe.dropna(inplace=True)

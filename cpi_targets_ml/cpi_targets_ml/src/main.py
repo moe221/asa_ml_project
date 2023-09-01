@@ -224,9 +224,10 @@ def train_model(min_date:str = '2009-01-01',
     X_reduced = X[['avg_cpa_rolling_mean_7d',
                     'ttr_rolling_mean_7d',
                     'avg_cpt_rolling_mean_7d',
-                    'country_code',
+                    'impressions',
                     'conversion_rate_rolling_mean_7d',
-                    'avg_cpt', 'daily_budget']].copy()
+                    'avg_cpt',
+                    'daily_budget']].copy()
 
 
     X_processed, preprocessor = preprocess_features(X_reduced, X_reduced.columns)
@@ -246,8 +247,8 @@ def train_model(min_date:str = '2009-01-01',
     input_example = X[['avg_cpa_rolling_mean_7d',
                        'ttr_rolling_mean_7d',
                        'avg_cpt_rolling_mean_7d',
-                       'country_code',
                        'conversion_rate_rolling_mean_7d',
+                       'impressions',
                        'avg_cpt',
                        'daily_budget']].iloc[[0]]
 
@@ -265,7 +266,8 @@ def train_model(min_date:str = '2009-01-01',
                 )
 
 if __name__ == '__main__':
-    #preprocess(min_date='2023-04-01', max_date='2023-08-11')
-    benchmark(min_date='2023-04-01', max_date='2023-08-11')
-    #train_model(min_date='2023-04-01', max_date='2023-08-11', model_name="Random_Forest_Regressor")
-    #load_model()
+    preprocess(min_date='2023-04-01', max_date='2023-08-24')
+    benchmark(min_date='2023-04-01', max_date='2023-08-24')
+    train_model(min_date='2023-04-01', max_date='2023-08-24', model_name="Random_Forest_Regressor")
+    load_model()
+    pass

@@ -12,7 +12,7 @@ LOCAL_REGISTRY_PATH="./models"
 MODEL_TARGET="mlflow"
 BUCKET_NAME="phiture-mlflow"
 
-MLFLOW_TRACKING_USERNAME=""
+MLFLOW_TRACKING_USERNAME="mlflow"
 MLFLOW_TRACKING_PASSWORD=""
 
 MLFLOW_TRACKING_URI="https://mlflow-2oymxxy5da-ey.a.run.app/"
